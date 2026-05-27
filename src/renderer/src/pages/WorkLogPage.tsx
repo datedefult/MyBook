@@ -167,7 +167,7 @@ function WorkLogPageContent(): JSX.Element {
     return result;
   }, [logs, selectedDate, filterTag, dateRangeStart, dateRangeEnd]);
 
-  const grouped = groupLogsByDate(filteredLogs);
+  const grouped = useMemo(() => groupLogsByDate(filteredLogs), [filteredLogs]);
 
   // 撤销提示倒计时
   useEffect(() => {
