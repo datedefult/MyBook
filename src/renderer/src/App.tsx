@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { Settings, FileText, ClipboardList, Columns3, BarChart3 } from 'lucide-react'
 import WorkLogPage from './pages/WorkLogPage'
 import ReportPage from './pages/ReportPage'
-import KanbanPage from './pages/KanbanPage'
 import StatsPage from './pages/StatsPage'
 import SettingsPage from './pages/SettingsPage'
 import { useToast } from './components/Toast'
 import { useThemeStore } from './stores/themeStore'
 import { useI18n, useLanguageStore } from './stores/languageStore'
+
+const KanbanPage = lazy(() => import('./pages/KanbanPage'))
 
 type Page = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings'
 
@@ -131,7 +132,11 @@ function App(): JSX.Element {
       <main className="flex-1 min-h-0 overflow-hidden">
         <div key={pageKey} className="h-full page-enter">
           {currentPage === 'worklog' && <WorkLogPage />}
-          {currentPage === 'kanban' && <KanbanPage />}
+          {currentPage === 'kanban' && (
+            <Suspense fallback={<div className="h-full flex items-center justify-center text-slate-400">{t('common.loading')}</div>}>
+              <KanbanPage />
+            </Suspense>
+          )}
           {currentPage === 'report' && <ReportPage />}
           {currentPage === 'stats' && <StatsPage />}
         </div>
