@@ -238,6 +238,14 @@ export function getDatabase(): Database.Database {
   return db
 }
 
+export function closeDatabase(): void {
+  try {
+    db.close()
+  } catch {
+    // ignore close errors during shutdown
+  }
+}
+
 // --- Work Logs CRUD ---
 
 export interface WorkLog {

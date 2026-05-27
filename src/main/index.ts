@@ -2,7 +2,7 @@ import { app, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipc
 import { join } from 'path'
 import { readFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { initDatabase, getSetting, setSetting } from './db'
+import { initDatabase, closeDatabase, getSetting, setSetting } from './db'
 import { registerIpcHandlers } from './ipc'
 import { tMain, type AppLanguage } from './i18n'
 import { configureAutoUpdater, registerUpdateIpc, startUpdateCheck } from './updater'
@@ -342,6 +342,7 @@ app.on('before-quit', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+  closeDatabase()
 })
 
 app.on('window-all-closed', () => {
