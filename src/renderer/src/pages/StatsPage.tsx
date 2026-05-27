@@ -616,8 +616,8 @@ function StatsPage(): JSX.Element {
   const [selectedRange, setSelectedRange] = useState<string>('近7天')
   const [customStartDate, setCustomStartDate] = useState<string>('')
   const [customEndDate, setCustomEndDate] = useState<string>('')
-  const { logs } = useWorkLogStore()
-  const { tasks } = useTaskStore()
+  const logs = useWorkLogStore(s => s.logs)
+  const tasks = useTaskStore(s => s.tasks)
   const { t } = useI18n()
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import { readFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -36,7 +36,6 @@ function createQuickCreateWindow(mode: 'log' | 'task'): void {
   }
 
   // Get primary display dimensions
-  const { screen } = require('electron')
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
 
@@ -65,7 +64,8 @@ function createQuickCreateWindow(mode: 'log' | 'task'): void {
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      contextIsolation: true,
+      sandbox: true
     }
   })
 
@@ -230,7 +230,8 @@ function createWindow(): void {
     icon: iconPath,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      contextIsolation: true,
+      sandbox: true
     }
   })
 

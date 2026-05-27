@@ -503,21 +503,21 @@ export function getStats(startDate?: string, endDate?: string): {
       GROUP BY date(completed_at)
     `).all(startDate, endDate) as { date: string; cnt: number }[]
   } else {
-    const days = typeof startDate === 'number' ? startDate : 30
+    const days = typeof startDate === 'number' ? Math.floor(startDate) : 30
     daily = db.prepare(`
       SELECT date(created_at) as date, COUNT(*) as log_count, 0 as task_completed
       FROM work_logs
-      WHERE created_at >= datetime('now', '-${days} days', 'localtime')
+      WHERE created_at >= datetime('now', '-' || ? || ' days', 'localtime')
       GROUP BY date(created_at)
       ORDER BY date ASC
-    `).all() as DailyStats[]
+    `).all(days) as DailyStats[]
 
     taskDone = db.prepare(`
       SELECT date(completed_at) as date, COUNT(*) as cnt
       FROM tasks
-      WHERE completed_at IS NOT NULL AND completed_at >= datetime('now', '-${days} days', 'localtime')
+      WHERE completed_at IS NOT NULL AND completed_at >= datetime('now', '-' || ? || ' days', 'localtime')
       GROUP BY date(completed_at)
-    `).all() as { date: string; cnt: number }[]
+    `).all(days) as { date: string; cnt: number }[]
   }
 
   const doneMap = new Map(taskDone.map((r) => [r.date, r.cnt]))
@@ -536,7 +536,9 @@ export function getStats(startDate?: string, endDate?: string): {
   const totalTasksActive = (db.prepare("SELECT COUNT(*) as c FROM tasks WHERE status IN ('todo', 'in_progress')").get() as { c: number }).c
 
   const allDailyLogs = db.prepare(`
-    SELECT date(created_at) as date FROM work_logs GROUP BY date(created_at)
+    SELECT date(created_at) as date FROM work_logs
+    WHERE created_at >= datetime('now', '-366 days', 'localtime')
+    GROUP BY date(created_at)
   `).all() as { date: string }[]
   const allLogDates = new Set(allDailyLogs.map((d) => d.date))
   
@@ -630,23 +632,38 @@ export function getRecordTags(recordType: string, recordId: number): string[] {
 }
 
 export function setRecordTags(recordType: string, recordId: number, tags: string[]): void {
-  // Ensure all tags exist in the tags table
-  for (const tag of tags) {
-    if (tag) createTag(tag)
+  const tx = db.transaction((rt: string, rid: number, ts: string[]) => {
+    for (const tag of ts) {
+      if (tag) createTag(tag)
+    }
+    db.prepare('DELETE FROM record_tags WHERE record_type = ? AND record_id = ?').run(rt, rid)
+    const insert = db.prepare('INSERT INTO record_tags (record_type, record_id, tag_name) VALUES (?, ?, ?)')
+    for (const tag of ts) {
+      if (tag) insert.run(rt, rid, tag)
+    }
+    const legacyCategory = ts[0] || ''
+    if (rt === 'work_log') {
+      db.prepare('UPDATE work_logs SET category = ? WHERE id = ?').run(legacyCategory, rid)
+    } else {
+      db.prepare('UPDATE tasks SET category = ? WHERE id = ?').run(legacyCategory, rid)
+    }
+  })
+  tx(recordType, recordId, tags)
+}
+
+export function getRecordTagsBatch(recordType: string, recordIds: number[]): Map<number, string[]> {
+  if (recordIds.length === 0) return new Map()
+  const placeholders = recordIds.map(() => '?').join(',')
+  const rows = db.prepare(
+    `SELECT record_id, tag_name FROM record_tags WHERE record_type = ? AND record_id IN (${placeholders}) ORDER BY tag_name`
+  ).all(recordType, ...recordIds) as { record_id: number; tag_name: string }[]
+  const map = new Map<number, string[]>()
+  for (const row of rows) {
+    const arr = map.get(row.record_id) || []
+    arr.push(row.tag_name)
+    map.set(row.record_id, arr)
   }
-  
-  db.prepare('DELETE FROM record_tags WHERE record_type = ? AND record_id = ?').run(recordType, recordId)
-  const insert = db.prepare('INSERT INTO record_tags (record_type, record_id, tag_name) VALUES (?, ?, ?)')
-  for (const tag of tags) {
-    if (tag) insert.run(recordType, recordId, tag)
-  }
-  // Sync legacy category column (first tag or empty)
-  const legacyCategory = tags[0] || ''
-  if (recordType === 'work_log') {
-    db.prepare('UPDATE work_logs SET category = ? WHERE id = ?').run(legacyCategory, recordId)
-  } else {
-    db.prepare('UPDATE tasks SET category = ? WHERE id = ?').run(legacyCategory, recordId)
-  }
+  return map
 }
 
 export function getRecentTags(limit = 10): string[] {

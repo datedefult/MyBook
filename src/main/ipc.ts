@@ -27,12 +27,47 @@ import {
   getAllTags,
   getRecentTags,
   getRecordTags,
+  getRecordTagsBatch,
   getTagColor,
   setTagColor,
   deleteTagColor,
   createTag,
   type Task
 } from './db'
+
+// --- Input Validation ---
+
+function assertPositiveInt(val: unknown, name: string): asserts val is number {
+  if (typeof val !== 'number' || !Number.isInteger(val) || val < 0) {
+    throw new Error(`Invalid ${name}: expected positive integer`)
+  }
+}
+
+function assertNonEmptyString(val: unknown, name: string): asserts val is string {
+  if (typeof val !== 'string' || val.trim().length === 0) {
+    throw new Error(`Invalid ${name}: expected non-empty string`)
+  }
+}
+
+function assertOptionalNumber(val: unknown, name: string): void {
+  if (val !== undefined && val !== null && typeof val !== 'number') {
+    throw new Error(`Invalid ${name}: expected number or undefined`)
+  }
+}
+
+// --- Settings Whitelist ---
+
+const ALLOWED_SETTINGS_KEYS = new Set([
+  'ai_provider', 'ai_base_url', 'ai_model',
+  'report_language', 'report_style', 'system_prompt',
+  'user_prompt', 'report_template', 'optimize_language', 'optimize_prompt',
+  'app_language', 'ai_auto_replace',
+  'shortcut_quick_log', 'shortcut_quick_task'
+])
+
+function isAllowedSettingsKey(key: string): boolean {
+  return ALLOWED_SETTINGS_KEYS.has(key)
+}
 import { generateReport, optimizeLog } from './ai'
 import { deleteStoredApiKey, getStoredApiKey, setStoredApiKey } from './secureSettings'
 import { tMain } from './i18n'
@@ -41,23 +76,38 @@ export function registerIpcHandlers(): void {
   // --- Work Logs ---
 
   ipcMain.handle('worklog:add', (_event, content: string, categories?: string[], note?: string) => {
+    assertNonEmptyString(content, 'content')
     const log = addWorkLog(content, categories, undefined, undefined, note)
     return log ? { ...log, categories: getRecordTags('work_log', log.id) } : log
   })
 
   ipcMain.handle('worklog:list', (_event, limit?: number, offset?: number) => {
+    assertOptionalNumber(limit, 'limit')
+    assertOptionalNumber(offset, 'offset')
     const logs = getWorkLogs(limit, offset)
-    return logs.map((l) => ({ ...l, categories: getRecordTags('work_log', l.id) }))
+    if (logs.length === 0) return []
+    const ids = logs.map(l => l.id)
+    const tagsMap = getRecordTagsBatch('work_log', ids)
+    return logs.map((l) => ({ ...l, categories: tagsMap.get(l.id) || [] }))
   })
 
   ipcMain.handle('worklog:byDateRange', (_event, from: string, to: string) => {
+    assertNonEmptyString(from, 'from')
+    assertNonEmptyString(to, 'to')
     const logs = getWorkLogsByDateRange(from, to)
-    return logs.map((l) => ({ ...l, categories: getRecordTags('work_log', l.id) }))
+    if (logs.length === 0) return []
+    const ids = logs.map(l => l.id)
+    const tagsMap = getRecordTagsBatch('work_log', ids)
+    return logs.map((l) => ({ ...l, categories: tagsMap.get(l.id) || [] }))
   })
 
   ipcMain.handle('worklog:search', (_event, keyword: string) => {
+    assertNonEmptyString(keyword, 'keyword')
     const logs = searchWorkLogs(keyword)
-    return logs.map((l) => ({ ...l, categories: getRecordTags('work_log', l.id) }))
+    if (logs.length === 0) return []
+    const ids = logs.map(l => l.id)
+    const tagsMap = getRecordTagsBatch('work_log', ids)
+    return logs.map((l) => ({ ...l, categories: tagsMap.get(l.id) || [] }))
   })
 
   ipcMain.handle('worklog:categories', () => {
@@ -65,10 +115,12 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('worklog:setCategories', (_event, id: number, categories: string[]) => {
+    assertPositiveInt(id, 'id')
     updateWorkLogCategories(id, categories)
   })
 
   ipcMain.handle('worklog:delete', (_event, id: number) => {
+    assertPositiveInt(id, 'id')
     return deleteWorkLog(id)
   })
 
@@ -93,17 +145,21 @@ export function registerIpcHandlers(): void {
       if (logs.length === 0) {
         throw new Error(tMain('noWorkLogsInRange'))
       }
-      const tasks = getTasks().filter((task) => {
+      const allTasks = getTasks()
+      const filteredTasks = allTasks.filter((task) => {
         if (task.status !== 'done') return true
         const completedDate = task.completed_at?.slice(0, 10)
         return Boolean(completedDate && completedDate >= dateFrom && completedDate <= dateTo)
-      }).map(task => ({
+      })
+      const taskIds = filteredTasks.map(t => t.id)
+      const taskTagsMap = taskIds.length > 0 ? getRecordTagsBatch('task', taskIds) : new Map<number, string[]>()
+      const tasks = filteredTasks.map(task => ({
         title: task.title,
         description: task.description,
         status: task.status,
         due_date: task.due_date,
         completed_at: task.completed_at,
-        categories: getRecordTags('task', task.id)
+        categories: taskTagsMap.get(task.id) || []
       }))
       const content = await generateReport(logs, dateFrom, dateTo, tasks)
       const report = saveReport('custom', dateFrom, dateTo, content)
@@ -122,23 +178,30 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('report:update', (_event, id: number, content: string) => {
+    assertPositiveInt(id, 'id')
+    assertNonEmptyString(content, 'content')
     return updateReportContent(id, content)
   })
 
   ipcMain.handle('report:delete', (_event, id: number) => {
+    assertPositiveInt(id, 'id')
     return deleteReport(id)
   })
 
   // --- Tasks ---
 
   ipcMain.handle('task:add', (_event, title: string, description?: string, status?: 'todo' | 'draft', categories?: string[]) => {
+    assertNonEmptyString(title, 'title')
     const task = addTask(title, description, status, categories)
     return task ? { ...task, categories: getRecordTags('task', task.id) } : task
   })
 
   ipcMain.handle('task:list', () => {
     const tasks = getTasks()
-    return tasks.map((t) => ({ ...t, categories: getRecordTags('task', t.id) }))
+    if (tasks.length === 0) return []
+    const ids = tasks.map(t => t.id)
+    const tagsMap = getRecordTagsBatch('task', ids)
+    return tasks.map((t) => ({ ...t, categories: tagsMap.get(t.id) || [] }))
   })
 
   ipcMain.handle(
@@ -148,16 +211,20 @@ export function registerIpcHandlers(): void {
       id: number,
       updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'position' | 'due_date' | 'category'>> & { categories?: string[] }
     ) => {
+      assertPositiveInt(id, 'id')
       const task = updateTask(id, updates)
       return task ? { ...task, categories: getRecordTags('task', task.id) } : task
     }
   )
 
   ipcMain.handle('task:delete', (_event, id: number) => {
+    assertPositiveInt(id, 'id')
     return deleteTask(id)
   })
 
   ipcMain.handle('task:reorder', (_event, taskIds: number[], status: string) => {
+    if (!Array.isArray(taskIds)) throw new Error('Invalid taskIds: expected array')
+    assertNonEmptyString(status, 'status')
     reorderTasks(taskIds, status)
   })
 
@@ -165,6 +232,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     'task:complete',
     (_event, id: number, logContent: string) => {
+      assertPositiveInt(id, 'id')
       const categories = getRecordTags('task', id)
       const task = updateTask(id, { status: 'done' })
       if (task && logContent.trim()) {
@@ -177,31 +245,38 @@ export function registerIpcHandlers(): void {
   // --- Settings ---
 
   ipcMain.handle('settings:get', (_event, key: string) => {
+    assertNonEmptyString(key, 'key')
     if (key === 'api_key') {
       return getStoredApiKey()
     }
+    if (!isAllowedSettingsKey(key)) return null
     return getSetting(key)
   })
 
   ipcMain.handle('settings:set', (_event, key: string, value: string) => {
+    assertNonEmptyString(key, 'key')
     if (key === 'api_key') {
       setStoredApiKey(value)
       return
     }
+    if (!isAllowedSettingsKey(key)) return
     setSetting(key, value)
   })
 
   ipcMain.handle('settings:delete', (_event, key: string) => {
+    assertNonEmptyString(key, 'key')
     if (key === 'api_key') {
       deleteStoredApiKey()
       return
     }
+    if (!isAllowedSettingsKey(key)) return
     deleteSetting(key)
   })
 
   // --- Export ---
 
   ipcMain.handle('export:logs', async (_event, format: 'csv' | 'markdown', logIds?: number[]) => {
+    if (format !== 'csv' && format !== 'markdown') throw new Error('Invalid format: expected csv or markdown')
     const logs = logIds && logIds.length > 0 ? getWorkLogsByIds(logIds) : getAllWorkLogs()
     if (logs.length === 0) throw new Error(tMain('noLogsToExport'))
 
@@ -277,6 +352,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('tag:create', (_event, name: string) => {
+    assertNonEmptyString(name, 'name')
     createTag(name)
   })
 

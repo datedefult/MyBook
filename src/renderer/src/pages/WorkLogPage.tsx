@@ -66,9 +66,21 @@ class WorkLogErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 }
 
 function WorkLogPageContent(): JSX.Element {
-  const { logs, fetchLogs, loadMore, hasMore, addLog, deleteLog, undoDelete, lastDeleted, searchLogs, clearSearch, searchKeyword, loading, clearLastDeleted } =
-    useWorkLogStore();
-  const { tasks, fetchTasks } = useTaskStore();
+  const logs = useWorkLogStore(s => s.logs)
+  const fetchLogs = useWorkLogStore(s => s.fetchLogs)
+  const loadMore = useWorkLogStore(s => s.loadMore)
+  const hasMore = useWorkLogStore(s => s.hasMore)
+  const addLog = useWorkLogStore(s => s.addLog)
+  const deleteLog = useWorkLogStore(s => s.deleteLog)
+  const undoDelete = useWorkLogStore(s => s.undoDelete)
+  const lastDeleted = useWorkLogStore(s => s.lastDeleted)
+  const searchLogs = useWorkLogStore(s => s.searchLogs)
+  const clearSearch = useWorkLogStore(s => s.clearSearch)
+  const searchKeyword = useWorkLogStore(s => s.searchKeyword)
+  const loading = useWorkLogStore(s => s.loading)
+  const clearLastDeleted = useWorkLogStore(s => s.clearLastDeleted)
+  const tasks = useTaskStore(s => s.tasks)
+  const fetchTasks = useTaskStore(s => s.fetchTasks)
   const [input, setInput] = useState('');
   const [note, setNote] = useState('');
   const [showNote, setShowNote] = useState(false);

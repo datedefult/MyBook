@@ -520,8 +520,13 @@ function TaskCardOverlay({ task }: { task: Task }): JSX.Element {
 
 // --- Main Kanban Page ---
 function KanbanPage(): JSX.Element {
-  const { tasks, fetchTasks, addTask, updateTask, deleteTask, completeTask, reorderTasks } =
-    useTaskStore()
+  const tasks = useTaskStore(s => s.tasks)
+  const fetchTasks = useTaskStore(s => s.fetchTasks)
+  const addTask = useTaskStore(s => s.addTask)
+  const updateTask = useTaskStore(s => s.updateTask)
+  const deleteTask = useTaskStore(s => s.deleteTask)
+  const completeTask = useTaskStore(s => s.completeTask)
+  const reorderTasks = useTaskStore(s => s.reorderTasks)
   const toast = useToast()
   const { t } = useI18n()
   const [newTaskTitle, setNewTaskTitle] = useState('')
