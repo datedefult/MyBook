@@ -230,7 +230,7 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    mainWindow?.show()
   })
 
   Menu.setApplicationMenu(null)
@@ -246,7 +246,7 @@ function createWindow(): void {
     mainWindow.on('close', (event) => {
       if (!isQuitting) {
         event.preventDefault()
-        mainWindow.hide()
+        mainWindow?.hide()
       }
     })
   }
