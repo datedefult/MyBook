@@ -2,6 +2,10 @@
 
 一个基于 Electron + React + TypeScript 构建的桌面工作管理应用。
 
+## 致谢
+
+本项目基于 [WorkPulse](https://github.com/dobest1024/WorkPulse) 进行二次开发，感谢原作者的优秀工作！
+
 ## 功能特性
 
 - 任务看板管理
@@ -61,5 +65,7 @@ WorkPulse-self/
 ```
 
 ## License
+
+本项目沿用原项目的 [MIT License](https://github.com/dobest1024/WorkPulse/blob/main/LICENSE)。
 
 Copyright © 2026
