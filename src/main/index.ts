@@ -9,20 +9,16 @@ import { configureAutoUpdater, registerUpdateIpc, startUpdateCheck } from './upd
 
 let tray: Tray | null = null
 let isQuitting = false
+let mainWindow: BrowserWindow | null = null
 let quickCreateWindow: BrowserWindow | null = null
 
 // --- Helpers ---
 
-function getMainWindow(): BrowserWindow | null {
-  return BrowserWindow.getAllWindows()[0] || null
-}
-
 function sendToRenderer(channel: string): void {
-  const win = getMainWindow()
-  if (win) {
-    if (!win.isVisible()) win.show()
-    win.focus()
-    win.webContents.send(channel)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (!mainWindow.isVisible()) mainWindow.show()
+    mainWindow.focus()
+    mainWindow.webContents.send(channel)
   }
 }
 
@@ -161,8 +157,7 @@ function buildTrayMenu(): Electron.Menu {
     {
       label: tMain('showApp'),
       click: () => {
-        const win = getMainWindow()
-        if (win) { win.show(); win.focus() }
+        if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.show(); mainWindow.focus() }
       }
     },
     { type: 'separator' },
@@ -202,13 +197,12 @@ function createTray(): void {
 
   // Click on tray icon shows/focuses the window
   tray.on('click', () => {
-    const win = getMainWindow()
-    if (win) {
-      if (win.isVisible() && win.isFocused()) {
-        win.hide()
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isVisible() && mainWindow.isFocused()) {
+        mainWindow.hide()
       } else {
-        win.show()
-        win.focus()
+        mainWindow.show()
+        mainWindow.focus()
       }
     }
   })
@@ -220,7 +214,7 @@ function createWindow(): void {
   const iconPath = is.dev
     ? join(__dirname, '../../resources/icon.png')
     : join(process.resourcesPath, 'icon.png')
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
     minWidth: 400,
@@ -333,7 +327,7 @@ app.whenReady().then(() => {
   startUpdateCheck()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (!mainWindow || mainWindow.isDestroyed()) createWindow()
   })
 
   const results = reregisterGlobalShortcuts()
