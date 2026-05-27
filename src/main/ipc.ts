@@ -8,6 +8,8 @@ import {
   getAllWorkLogs,
   getWorkLogsByIds,
   getStats,
+  getStatsByDateRange,
+  getStatsByDays,
   getCategories,
   updateWorkLogCategories,
   deleteWorkLog,
@@ -133,7 +135,13 @@ export function registerIpcHandlers(): void {
   )
 
   ipcMain.handle('stats:get', (_event, startDate?: string | number, endDate?: string) => {
-    return getStats(startDate as string, endDate)
+    if (typeof startDate === 'number') {
+      return getStatsByDays(startDate)
+    }
+    if (startDate && endDate) {
+      return getStatsByDateRange(startDate, endDate)
+    }
+    return getStatsByDays(30)
   })
 
   // --- Reports ---

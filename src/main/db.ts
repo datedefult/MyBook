@@ -477,49 +477,15 @@ export interface DailyStats {
   task_completed: number
 }
 
-export function getStats(startDate?: string, endDate?: string): {
+export type StatsResult = {
   daily: DailyStats[]
   totalLogs: number
   totalTasksDone: number
   totalTasksActive: number
   streak: number
-} {
-  let daily: DailyStats[]
-  let taskDone: { date: string; cnt: number }[]
+}
 
-  if (startDate && endDate) {
-    daily = db.prepare(`
-      SELECT date(created_at) as date, COUNT(*) as log_count, 0 as task_completed
-      FROM work_logs
-      WHERE date(created_at) >= date(?) AND date(created_at) <= date(?)
-      GROUP BY date(created_at)
-      ORDER BY date ASC
-    `).all(startDate, endDate) as DailyStats[]
-
-    taskDone = db.prepare(`
-      SELECT date(completed_at) as date, COUNT(*) as cnt
-      FROM tasks
-      WHERE completed_at IS NOT NULL AND date(completed_at) >= date(?) AND date(completed_at) <= date(?)
-      GROUP BY date(completed_at)
-    `).all(startDate, endDate) as { date: string; cnt: number }[]
-  } else {
-    const days = typeof startDate === 'number' ? Math.floor(startDate) : 30
-    daily = db.prepare(`
-      SELECT date(created_at) as date, COUNT(*) as log_count, 0 as task_completed
-      FROM work_logs
-      WHERE created_at >= datetime('now', '-' || ? || ' days', 'localtime')
-      GROUP BY date(created_at)
-      ORDER BY date ASC
-    `).all(days) as DailyStats[]
-
-    taskDone = db.prepare(`
-      SELECT date(completed_at) as date, COUNT(*) as cnt
-      FROM tasks
-      WHERE completed_at IS NOT NULL AND completed_at >= datetime('now', '-' || ? || ' days', 'localtime')
-      GROUP BY date(completed_at)
-    `).all(days) as { date: string; cnt: number }[]
-  }
-
+function mergeDailyWithTasks(daily: DailyStats[], taskDone: { date: string; cnt: number }[]): DailyStats[] {
   const doneMap = new Map(taskDone.map((r) => [r.date, r.cnt]))
   for (const d of daily) {
     d.task_completed = doneMap.get(d.date) || 0
@@ -530,18 +496,24 @@ export function getStats(startDate?: string, endDate?: string): {
     }
   })
   daily.sort((a, b) => a.date.localeCompare(b.date))
+  return daily
+}
 
+function getGlobalTotals(): { totalLogs: number; totalTasksDone: number; totalTasksActive: number } {
   const totalLogs = (db.prepare('SELECT COUNT(*) as c FROM work_logs').get() as { c: number }).c
   const totalTasksDone = (db.prepare("SELECT COUNT(*) as c FROM tasks WHERE status = 'done'").get() as { c: number }).c
   const totalTasksActive = (db.prepare("SELECT COUNT(*) as c FROM tasks WHERE status IN ('todo', 'in_progress')").get() as { c: number }).c
+  return { totalLogs, totalTasksDone, totalTasksActive }
+}
 
+function getStreak(): number {
   const allDailyLogs = db.prepare(`
     SELECT date(created_at) as date FROM work_logs
     WHERE created_at >= datetime('now', '-366 days', 'localtime')
     GROUP BY date(created_at)
   `).all() as { date: string }[]
   const allLogDates = new Set(allDailyLogs.map((d) => d.date))
-  
+
   let streak = 0
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -557,8 +529,58 @@ export function getStats(startDate?: string, endDate?: string): {
       break
     }
   }
+  return streak
+}
 
-  return { daily, totalLogs, totalTasksDone, totalTasksActive, streak }
+export function getStatsByDateRange(from: string, to: string): StatsResult {
+  const daily = db.prepare(`
+    SELECT date(created_at) as date, COUNT(*) as log_count, 0 as task_completed
+    FROM work_logs
+    WHERE date(created_at) >= date(?) AND date(created_at) <= date(?)
+    GROUP BY date(created_at)
+    ORDER BY date ASC
+  `).all(from, to) as DailyStats[]
+
+  const taskDone = db.prepare(`
+    SELECT date(completed_at) as date, COUNT(*) as cnt
+    FROM tasks
+    WHERE completed_at IS NOT NULL AND date(completed_at) >= date(?) AND date(completed_at) <= date(?)
+    GROUP BY date(completed_at)
+  `).all(from, to) as { date: string; cnt: number }[]
+
+  mergeDailyWithTasks(daily, taskDone)
+  const { totalLogs, totalTasksDone, totalTasksActive } = getGlobalTotals()
+  return { daily, totalLogs, totalTasksDone, totalTasksActive, streak: getStreak() }
+}
+
+export function getStatsByDays(days = 30): StatsResult {
+  const safeDays = Math.floor(days)
+  const daily = db.prepare(`
+    SELECT date(created_at) as date, COUNT(*) as log_count, 0 as task_completed
+    FROM work_logs
+    WHERE created_at >= datetime('now', '-' || ? || ' days', 'localtime')
+    GROUP BY date(created_at)
+    ORDER BY date ASC
+  `).all(safeDays) as DailyStats[]
+
+  const taskDone = db.prepare(`
+    SELECT date(completed_at) as date, COUNT(*) as cnt
+    FROM tasks
+    WHERE completed_at IS NOT NULL AND completed_at >= datetime('now', '-' || ? || ' days', 'localtime')
+    GROUP BY date(completed_at)
+  `).all(safeDays) as { date: string; cnt: number }[]
+
+  mergeDailyWithTasks(daily, taskDone)
+  const { totalLogs, totalTasksDone, totalTasksActive } = getGlobalTotals()
+  return { daily, totalLogs, totalTasksDone, totalTasksActive, streak: getStreak() }
+}
+
+/** @deprecated Use getStatsByDateRange or getStatsByDays instead */
+export function getStats(startDate?: string, endDate?: string): StatsResult {
+  if (startDate && endDate) {
+    return getStatsByDateRange(startDate, endDate)
+  }
+  return getStatsByDays(30)
 }
 
 export function getAllWorkLogs(): WorkLog[] {
