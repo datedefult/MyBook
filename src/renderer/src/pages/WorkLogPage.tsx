@@ -253,9 +253,12 @@ function WorkLogPageContent(): JSX.Element {
     };
   }, []);
 
-  // 保存草稿
+  // 保存草稿（防抖 500ms）
   useEffect(() => {
-    saveDraft();
+    const timer = setTimeout(() => {
+      saveDraft();
+    }, 500);
+    return () => clearTimeout(timer);
   }, [input, note, selectedTags, showNote]);
 
   const loadDraft = (): void => {
