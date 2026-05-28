@@ -2,6 +2,19 @@ import { getSetting } from './db'
 import { getStoredApiKey } from './secureSettings'
 import { getResolvedLanguage, tMain } from './i18n'
 
+// --- Rate Limiting ---
+const RATE_LIMIT_MS = 3000 // minimum 3 seconds between AI calls
+let lastAiCallTime = 0
+
+function checkRateLimit(): void {
+  const now = Date.now()
+  const elapsed = now - lastAiCallTime
+  if (elapsed < RATE_LIMIT_MS) {
+    throw new Error(`请等待 ${Math.ceil((RATE_LIMIT_MS - elapsed) / 1000)} 秒后再试`)
+  }
+  lastAiCallTime = now
+}
+
 interface Message {
   role: 'system' | 'user' | 'assistant'
   content: string
@@ -99,6 +112,7 @@ Requirements:
 - Only return the optimized content, no additional explanation`
 
 export async function optimizeLog(content: string): Promise<string> {
+  checkRateLimit()
   const apiKey = getStoredApiKey()
   if (!apiKey) {
     throw new Error(tMain('apiKeyMissing'))
@@ -131,6 +145,7 @@ export async function generateReport(
   dateTo: string,
   tasks: ReportTaskContext[] = []
 ): Promise<string> {
+  checkRateLimit()
   const apiKey = getStoredApiKey()
   if (!apiKey) {
     throw new Error(tMain('apiKeyMissing'))
