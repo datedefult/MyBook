@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { X } from 'lucide-react'
 import { getTagColors } from '../utils/tagColorUtils'
 
@@ -11,7 +12,7 @@ interface TagBadgeProps {
   className?: string
 }
 
-export function TagBadge({
+export const TagBadge = memo(function TagBadge({
   tag,
   selected = false,
   removable = false,
@@ -50,4 +51,4 @@ export function TagBadge({
       )}
     </span>
   )
-}
+})
