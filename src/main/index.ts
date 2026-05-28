@@ -7,6 +7,13 @@ import { registerIpcHandlers } from './ipc'
 import { tMain, type AppLanguage } from './i18n'
 import { configureAutoUpdater, registerUpdateIpc, startUpdateCheck } from './updater'
 
+// --- Constants ---
+const QUICK_CREATE_WIDTH_RATIO = 0.5 // 50% of screen width
+const QUICK_CREATE_INITIAL_HEIGHT = 180
+const QUICK_CREATE_MIN_HEIGHT = 120
+const QUICK_CREATE_MAX_HEIGHT = 600
+const QUICK_CREATE_MIN_WIDTH = 400
+
 let tray: Tray | null = null
 let isQuitting = false
 let mainWindow: BrowserWindow | null = null
@@ -36,8 +43,8 @@ function createQuickCreateWindow(mode: 'log' | 'task'): void {
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
 
   // Calculate window size: 50% width, auto height
-  const windowWidth = Math.floor(screenWidth * 0.5)
-  const windowHeight = 180 // 更紧凑的初始高度
+  const windowWidth = Math.floor(screenWidth * QUICK_CREATE_WIDTH_RATIO)
+  const windowHeight = QUICK_CREATE_INITIAL_HEIGHT
 
   // Position: centered horizontally, at top of screen
   const x = Math.floor((screenWidth - windowWidth) / 2)
@@ -46,9 +53,9 @@ function createQuickCreateWindow(mode: 'log' | 'task'): void {
   quickCreateWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
-    minWidth: 400,
-    minHeight: 120,
-    maxHeight: 600, // 增加最大高度给标签选择器
+    minWidth: QUICK_CREATE_MIN_WIDTH,
+    minHeight: QUICK_CREATE_MIN_HEIGHT,
+    maxHeight: QUICK_CREATE_MAX_HEIGHT,
     x,
     y,
     resizable: true,
@@ -307,8 +314,7 @@ function registerShortcutIpc(): void {
   ipcMain.on('quick-create:resize', (_event, height: number) => {
     if (quickCreateWindow && !quickCreateWindow.isDestroyed()) {
       const currentSize = quickCreateWindow.getSize()
-      const maxHeight = 600
-      const finalHeight = Math.min(Math.max(height, 120), maxHeight)
+      const finalHeight = Math.min(Math.max(height, QUICK_CREATE_MIN_HEIGHT), QUICK_CREATE_MAX_HEIGHT)
       quickCreateWindow.setSize(currentSize[0], finalHeight, true)
     }
   })
