@@ -252,7 +252,14 @@ function createWindow(): void {
   }
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    try {
+      const url = new URL(details.url)
+      if (url.protocol === 'https:' || url.protocol === 'http:') {
+        shell.openExternal(details.url)
+      }
+    } catch {
+      // invalid URL, ignore
+    }
     return { action: 'deny' }
   })
 
