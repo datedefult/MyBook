@@ -68,7 +68,7 @@ function createQuickCreateWindow(mode: 'log' | 'task'): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
-      sandbox: true
+      sandbox: false
     }
   })
 
@@ -232,7 +232,7 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
-      sandbox: true
+      sandbox: false
     }
   })
 
@@ -333,12 +333,13 @@ app.whenReady().then(() => {
 
   // Content Security Policy
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const csp = is.dev
+      ? "default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https: http: ws:; img-src 'self' data:; font-src 'self' data:"
+      : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https: http:"
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https: http:"
-        ]
+        'Content-Security-Policy': [csp]
       }
     })
   })
