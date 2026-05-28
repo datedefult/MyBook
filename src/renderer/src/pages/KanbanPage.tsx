@@ -20,7 +20,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { restrictToWindowEdges } from '@dnd-kit/modifiers'
-import { Plus, Trash2, GripVertical, Archive, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Calendar, Pencil, Check, X, FileText, CheckCircle2 } from 'lucide-react'
+import { Plus, Trash2, GripVertical, Archive, ChevronRight, ChevronLeft, ChevronDown, Calendar, Pencil, Check, X, FileText, CheckCircle2 } from 'lucide-react'
 import { useTaskStore } from '../stores/taskStore'
 import { useTagStore } from '../stores/tagStore'
 import { useToast } from '../components/Toast'
@@ -99,7 +99,6 @@ function formatCompletedAt(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-const COLUMN_DEFAULT_LIMIT = 5
 const CARD_TITLE_MAX_CHARS = 50
 const CARD_DESC_MAX_CHARS = 80
 
@@ -541,10 +540,6 @@ function KanbanPage(): JSX.Element {
   const [localTasks, setLocalTasks] = useState<Task[]>([])
   const [draftOpen, setDraftOpen] = useState(false)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [expandedColumns, setExpandedColumns] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem('kanban:expandedColumns')
-    return saved ? new Set(JSON.parse(saved)) : new Set()
-  })
   const [collapsedTasks, setCollapsedTasks] = useState<Set<number>>(new Set())
   const [expandedCompleteTaskId, setExpandedCompleteTaskId] = useState<number | null>(null)
 
@@ -818,17 +813,6 @@ function KanbanPage(): JSX.Element {
             <div className="flex-1 min-h-0 flex gap-4">
               {COLUMNS.map((col) => {
                 const columnTasks = getColumnTasks(col.id)
-                const isDoneColumn = col.id === 'done'
-                const isExpanded = expandedColumns.has(col.id)
-
-                let visibleTasks: Task[]
-                if (isDoneColumn) {
-                  visibleTasks = columnTasks
-                } else {
-                  visibleTasks = isExpanded ? columnTasks : columnTasks.slice(0, COLUMN_DEFAULT_LIMIT)
-                }
-
-                const hasMore = !isDoneColumn && columnTasks.length > COLUMN_DEFAULT_LIMIT
 
                 return (
                   <div key={col.id} className="flex-1 flex flex-col min-h-0 min-w-0">
@@ -837,32 +821,6 @@ function KanbanPage(): JSX.Element {
                       <span className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg font-medium">
                         {columnTasks.length}
                       </span>
-                      {hasMore && (
-                        <button
-                          onClick={() => {
-                            setExpandedColumns((prev) => {
-                              const next = new Set(prev)
-                              if (next.has(col.id)) next.delete(col.id)
-                              else next.add(col.id)
-                              localStorage.setItem('kanban:expandedColumns', JSON.stringify(Array.from(next)))
-                              return next
-                            })
-                          }}
-                          className="ml-auto flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                        >
-                          {isExpanded ? (
-                            <>
-                              <ChevronUp className="w-3.5 h-3.5" />
-                              {t('kanban.collapseColumn')}
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="w-3.5 h-3.5" />
-                              {t('kanban.showMore', { count: columnTasks.length - COLUMN_DEFAULT_LIMIT })}
-                            </>
-                          )}
-                        </button>
-                      )}
                     </div>
                     <SortableContext
                       items={columnTasks.map((t) => t.id)}
@@ -870,7 +828,7 @@ function KanbanPage(): JSX.Element {
                     >
                       <DroppableColumn id={col.id}>
                         <div className="flex-1 min-h-0 h-full overflow-y-auto overflow-x-hidden space-y-3 scrollbar-thin" style={{ scrollbarGutter: 'stable' }}>
-                          {visibleTasks.map((task) => (
+                          {columnTasks.map((task) => (
                             <SortableTaskCard
                               key={task.id}
                               task={task}
