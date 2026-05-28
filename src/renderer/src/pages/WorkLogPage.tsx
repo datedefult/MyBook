@@ -3,6 +3,7 @@ import { Search, X, Download, Sparkles, Calendar, Plus, Loader2, Calendar as Cal
 import { useToast } from '../components/Toast';
 import { useWorkLogStore } from '../stores/worklogStore';
 import { useTaskStore } from '../stores/taskStore';
+import { useTagStore } from '../stores/tagStore';
 import { formatDate, formatDateLocal, formatWeekday, groupLogsByDate, isSameDay, isTodayDateKey } from '../lib/dateUtils';
 import { useI18n } from '../stores/languageStore';
 import { TagBadge } from '../components/TagBadge';
@@ -81,6 +82,8 @@ function WorkLogPageContent(): JSX.Element {
   const clearLastDeleted = useWorkLogStore(s => s.clearLastDeleted)
   const tasks = useTaskStore(s => s.tasks)
   const fetchTasks = useTaskStore(s => s.fetchTasks)
+  const tags = useTagStore(s => s.tags)
+  const fetchTags = useTagStore(s => s.fetchTags)
   const [input, setInput] = useState('');
   const [note, setNote] = useState('');
   const [showNote, setShowNote] = useState(false);
@@ -90,7 +93,6 @@ function WorkLogPageContent(): JSX.Element {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [filterTag, setFilterTag] = useState<string | null>(null);
-  const [recentTags, setRecentTags] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [autoReplace, setAutoReplace] = useState(false);
@@ -232,7 +234,7 @@ function WorkLogPageContent(): JSX.Element {
   useEffect(() => {
     fetchLogs();
     fetchTasks();
-    loadTags();
+    fetchTags();
     loadDraft();
     loadSettings();
     clearLastDeleted();
@@ -305,15 +307,6 @@ function WorkLogPageContent(): JSX.Element {
     }
   };
 
-  const loadTags = async (): Promise<void> => {
-    try {
-      const tags = await window.api.tag.all();
-      setRecentTags(tags.slice(0, 10));
-    } catch {
-      // non-critical
-    }
-  };
-
   const parseCategory = (text: string): { content: string; category: string } => {
     const match = text.match(/#(\S+)\s*/);
     if (match) {
@@ -343,7 +336,7 @@ function WorkLogPageContent(): JSX.Element {
       setShowNote(false);
       setSelectedTags([]);
       clearDraft();
-      loadTags();
+      fetchTags();
       // 显示成功提示
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 1500);
@@ -1156,7 +1149,7 @@ function WorkLogPageContent(): JSX.Element {
             onClick={async () => {
               await undoDelete();
               toast.success(t('worklog.restored'));
-              loadTags();
+              fetchTags();
               clearInterval(undoTimerRef.current);
               setUndoCountdown(0);
             }}

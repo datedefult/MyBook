@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { restrictToWindowEdges } from '@dnd-kit/modifiers'
 import { Plus, Trash2, GripVertical, Archive, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Calendar, Pencil, Check, X, FileText, CheckCircle2 } from 'lucide-react'
 import { useTaskStore } from '../stores/taskStore'
+import { useTagStore } from '../stores/tagStore'
 import { useToast } from '../components/Toast'
 import { useI18n } from '../stores/languageStore'
 import { TagBadge } from '../components/TagBadge'
@@ -527,6 +528,8 @@ function KanbanPage(): JSX.Element {
   const deleteTask = useTaskStore(s => s.deleteTask)
   const completeTask = useTaskStore(s => s.completeTask)
   const reorderTasks = useTaskStore(s => s.reorderTasks)
+  const tagList = useTagStore(s => s.tags)
+  const fetchTags = useTagStore(s => s.fetchTags)
   const toast = useToast()
   const { t } = useI18n()
   const [newTaskTitle, setNewTaskTitle] = useState('')
@@ -538,7 +541,6 @@ function KanbanPage(): JSX.Element {
   const [localTasks, setLocalTasks] = useState<Task[]>([])
   const [draftOpen, setDraftOpen] = useState(false)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [tagList, setTagList] = useState<string[]>([])
   const [expandedColumns, setExpandedColumns] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('kanban:expandedColumns')
     return saved ? new Set(JSON.parse(saved)) : new Set()
@@ -548,17 +550,8 @@ function KanbanPage(): JSX.Element {
 
   useEffect(() => {
     fetchTasks()
-    loadTags()
+    fetchTags()
   }, [])
-
-  const loadTags = async (): Promise<void> => {
-    try {
-      const tags = await window.api.tag.all()
-      setTagList(tags)
-    } catch {
-      // non-critical
-    }
-  }
 
   useEffect(() => {
     setLocalTasks(tasks)
