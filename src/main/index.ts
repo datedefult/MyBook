@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain, screen } from 'electron'
+import { app, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain, screen, session } from 'electron'
 import { join } from 'path'
 import { readFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -324,6 +324,19 @@ app.whenReady().then(() => {
   })
 
   initDatabase()
+
+  // Content Security Policy
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https: http:"
+        ]
+      }
+    })
+  })
+
   configureAutoUpdater()
   registerIpcHandlers()
   registerShortcutIpc()
