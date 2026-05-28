@@ -98,7 +98,6 @@ function WorkLogPageContent(): JSX.Element {
   const [autoReplace, setAutoReplace] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
-  const [showSuccess, setShowSuccess] = useState(false);
   const [expandedLogTags, setExpandedLogTags] = useState<Set<number>>(new Set());
   const [undoCountdown, setUndoCountdown] = useState(10);
   const [tagsExpanded, setTagsExpanded] = useState(false);
@@ -337,9 +336,7 @@ function WorkLogPageContent(): JSX.Element {
       setSelectedTags([]);
       clearDraft();
       fetchTags();
-      // 显示成功提示
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 1500);
+      toast.success(t('worklog.added'));
     } catch {
       setError(t('worklog.saveError'));
     }
@@ -474,12 +471,6 @@ function WorkLogPageContent(): JSX.Element {
       {/* 全局快速添加日志卡片 */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-700/50 px-6 py-4 shrink-0">
         <div className="relative">
-          {/* 成功提示 */}
-          {showSuccess && (
-            <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-1.5 rounded-full text-sm animate-fade-in-up z-50 shadow-lg">
-              {t('worklog.added')}
-            </div>
-          )}
           {/* 输入框主区域 */}
           <div className={`bg-white dark:bg-slate-900 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 p-4 transition-all duration-150 ${shaking ? 'animate-shake' : ''}`}>
             <div className="flex flex-col gap-3">
